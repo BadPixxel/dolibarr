@@ -89,7 +89,7 @@ abstract class CommonObject
     {
     	global $db;
 
-		$sql = "SELECT rowid, ref, ref_ext";
+		$sql = "SELECT rowid";
 		$sql.= " FROM ".MAIN_DB_PREFIX.$element;
 		if ($id > 0) $sql.= " WHERE rowid = ".$db->escape($id);
 		else if ($ref) $sql.= " WHERE ref = '".$db->escape($ref)."'";
