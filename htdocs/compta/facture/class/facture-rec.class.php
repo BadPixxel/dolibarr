@@ -1,7 +1,7 @@
 <?php
 /* Copyright (C) 2003-2005	Rodolphe Quiedeville	<rodolphe@quiedeville.org>
  * Copyright (C) 2004-2015	Laurent Destailleur		<eldy@users.sourceforge.net>
- * Copyright (C) 2009-2012	Regis Houssin			<regis.houssin@capnetworks.com>
+ * Copyright (C) 2009-2012	Regis Houssin			<regis.houssin@inodbox.com>
  * Copyright (C) 2010-2011	Juanjo Menent			<jmenent@2byte.es>
  * Copyright (C) 2012       Cedric Salvador      <csalvador@gpcsolutions.fr>
  * Copyright (C) 2013       Florian Henry		  	<florian.henry@open-concept.pro>
@@ -39,34 +39,64 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
  */
 class FactureRec extends CommonInvoice
 {
+	/**
+	 * @var string ID to identify managed object
+	 */
 	public $element='facturerec';
+
+	/**
+	 * @var string Name of table without prefix where object is stored
+	 */
 	public $table_element='facture_rec';
+
+	/**
+	 * @var int    Name of subtable line
+	 */
 	public $table_element_line='facturedet_rec';
+
+	/**
+	 * @var int Field with ID of parent key if this field has a parent
+	 */
 	public $fk_element='fk_facture';
+
+	/**
+	 * @var string String with name of icon for myobject. Must be the part after the 'object_' into object_myobject.png
+	 */
 	public $picto='bill';
 
-	var $entity;
-	var $number;
-	var $date;
-	var $amount;
-	var $remise;
-	var $tva;
-	var $total;
-	var $db_table;
-	var $propalid;
+	/**
+	 * @var int Entity
+	 */
+	public $entity;
 
-	var $date_last_gen;
-	var $date_when;
-	var $nb_gen_done;
-	var $nb_gen_max;
+	public $number;
+	public $date;
+	public $amount;
+	public $remise;
+	public $tva;
+	public $total;
+	public $db_table;
+	public $propalid;
 
-	var $frequency;
-	var $unit_frequency;
+	public $date_last_gen;
+	public $date_when;
+	public $nb_gen_done;
+	public $nb_gen_max;
 
-	var $rang;
-	var $special_code;
+	public $frequency;
+	public $unit_frequency;
 
-	var $usenewprice=0;
+	public $rang;
+	public $special_code;
+
+	public $usenewprice=0;
+
+	public $suspended;			// status
+
+	const STATUS_NOTSUSPENDED = 0;
+	const STATUS_SUSPENDED = 1;
+
+
 
 	/**
 	 *	Constructor
@@ -95,12 +125,13 @@ class FactureRec extends CommonInvoice
 		// Clean parameters
 		$this->titre=trim($this->titre);
 		$this->usenewprice=empty($this->usenewprice)?0:$this->usenewprice;
+		if (empty($this->suspended)) $this->suspended=0;
 
 		// No frequency defined then no next date to execution
 		if (empty($this->frequency))
 		{
 			$this->frequency=0;
-			$this->date_when=NULL;
+			$this->date_when=null;
 		}
 
 
@@ -147,6 +178,7 @@ class FactureRec extends CommonInvoice
 			$sql.= ", fk_multicurrency";
 			$sql.= ", multicurrency_code";
 			$sql.= ", multicurrency_tx";
+			$sql.= ", suspended";
 			$sql.= ") VALUES (";
 			$sql.= "'".$this->db->escape($this->titre)."'";
 			$sql.= ", ".$facsrc->socid;
@@ -167,13 +199,14 @@ class FactureRec extends CommonInvoice
 			$sql.= ", '".$this->db->escape($this->unit_frequency)."'";
 			$sql.= ", ".(!empty($this->date_when)?"'".$this->db->idate($this->date_when)."'":'NULL');
 			$sql.= ", ".(!empty($this->date_last_gen)?"'".$this->db->idate($this->date_last_gen)."'":'NULL');
-			$sql.= ", ".$this->nb_gen_done;
-			$sql.= ", ".$this->nb_gen_max;
-			$sql.= ", ".$this->auto_validate;
-			$sql.= ", ".$this->generate_pdf;
-			$sql.= ", ".$facsrc->fk_multicurrency;
-			$sql.= ", '".$facsrc->multicurrency_code."'";
-			$sql.= ", ".$facsrc->multicurrency_tx;
+			$sql.= ", ".$this->db->escape($this->nb_gen_done);
+			$sql.= ", ".$this->db->escape($this->nb_gen_max);
+			$sql.= ", ".$this->db->escape($this->auto_validate);
+			$sql.= ", ".$this->db->escape($this->generate_pdf);
+			$sql.= ", ".$this->db->escape($facsrc->fk_multicurrency);
+			$sql.= ", '".$this->db->escape($facsrc->multicurrency_code)."'";
+			$sql.= ", ".$this->db->escape($facsrc->multicurrency_tx);
+			$sql.= ", ".$this->db->escape($this->suspended);
 			$sql.= ")";
 
 			if ($this->db->query($sql))
@@ -422,18 +455,20 @@ class FactureRec extends CommonInvoice
 	}
 
 
+    // phpcs:disable PEAR.NamingConventions.ValidFunctionName.NotCamelCaps
 	/**
 	 *	Recupere les lignes de factures predefinies dans this->lines
 	 *
-	 *	@return     int         1 if OK, < 0 if KO
- 	 */
+	 *  @return     int         1 if OK, < 0 if KO
+     */
 	function fetch_lines()
 	{
+        // phpcs:enable
 		$this->lines=array();
 
 		// Retreive all extrafield for line
 		// fetch optionals attributes and labels
-		require_once(DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php');
+		require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafieldsline=new ExtraFields($this->db);
 		$extrafieldsline=$extrafieldsline->fetch_name_optionals_label('facturedet_rec',true);
 
@@ -465,7 +500,6 @@ class FactureRec extends CommonInvoice
 
 				$line->id	            = $objp->rowid;
 				$line->rowid	        = $objp->rowid;
-				$line->label            = $objp->custom_label;		// Label line
 				$line->desc             = $objp->description;		// Description line
 				$line->description      = $objp->description;		// Description line
 				$line->product_type     = $objp->product_type;		// Type of line
@@ -477,6 +511,8 @@ class FactureRec extends CommonInvoice
 				$line->fk_product_type  = $objp->fk_product_type;	// Type of product
 				$line->qty              = $objp->qty;
 				$line->subprice         = $objp->subprice;
+
+				$line->label            = $objp->custom_label;		// @deprecated
 
 				$line->vat_src_code     = $objp->vat_src_code;
 				$line->tva_tx           = $objp->tva_tx;
@@ -962,13 +998,18 @@ class FactureRec extends CommonInvoice
 	 *
 	 *  WARNING: This method change temporarly context $conf->entity to be in correct context for each recurring invoice found.
 	 *
-	 *  @return	int						0 if OK, < 0 if KO (this function is used also by cron so only 0 is OK)
+	 *  @param	int		$restictoninvoiceid		0=All qualified template invoices found. > 0 = restrict action on invoice ID
+	 *  @param	int		$forcevalidation		1=Force validation of invoice whatever is template auto_validate flag.
+	 *  @return	int								0 if OK, < 0 if KO (this function is used also by cron so only 0 is OK)
 	 */
-	function createRecurringInvoices()
+	function createRecurringInvoices($restictoninvoiceid=0, $forcevalidation=0)
 	{
 		global $conf, $langs, $db, $user;
 
-		$langs->load("bills");
+		$error=0;
+
+		// Load translation files required by the page
+        $langs->loadLangs(array("main","bills"));
 
 		$nb_create=0;
 
@@ -976,12 +1017,15 @@ class FactureRec extends CommonInvoice
 		$tmparray=dol_getdate($now);
 		$today = dol_mktime(23,59,59,$tmparray['mon'],$tmparray['mday'],$tmparray['year']);   // Today is last second of current day
 
-		dol_syslog("createRecurringInvoices");
+		dol_syslog("createRecurringInvoices restictoninvoiceid=".$restictoninvoiceid." forcevalidation=".$forcevalidation);
+
 		$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'facture_rec';
 		$sql.= ' WHERE frequency > 0';      // A recurring invoice is an invoice with a frequency
 		$sql.= " AND (date_when IS NULL OR date_when <= '".$db->idate($today)."')";
 		$sql.= ' AND (nb_gen_done < nb_gen_max OR nb_gen_max = 0)';
 		$sql.= ' AND suspended = 0';
+		$sql.= ' AND entity = '.$conf->entity;	// MUST STAY = $conf->entity here
+		if ($restictoninvoiceid > 0) $sql.=' AND rowid = '.$restictoninvoiceid;
 		$sql.= $db->order('entity', 'ASC');
 		//print $sql;exit;
 
@@ -996,58 +1040,70 @@ class FactureRec extends CommonInvoice
 
 		    $saventity = $conf->entity;
 
-		    while ($i < $num)     // Loop on each template invoice
+		    while ($i < $num)     // Loop on each template invoice. If $num = 0, test is false at first pass.
 			{
-			    $line = $db->fetch_object($resql);
+				$line = $db->fetch_object($resql);
 
 			    $db->begin();
 
-				$facturerec = new FactureRec($db);
+			    $invoiceidgenerated = 0;
+
+			    $facturerec = new FactureRec($db);
 				$facturerec->fetch($line->rowid);
 
-				// Set entity context
-				$conf->entity = $facturerec->entity;
+				if ($facturerec->id > 0)
+				{
+					// Set entity context
+					$conf->entity = $facturerec->entity;
 
-				dol_syslog("createRecurringInvoices Process invoice template id=".$facturerec->id.", ref=".$facturerec->ref.", entity=".$facturerec->entity);
+					dol_syslog("createRecurringInvoices Process invoice template id=".$facturerec->id.", ref=".$facturerec->ref.", entity=".$facturerec->entity);
 
-			    $error=0;
+				    $facture = new Facture($db);
+					$facture->fac_rec = $facturerec->id;    // We will create $facture from this recurring invoice
+					$facture->fk_fac_rec_source = $facturerec->id;    // We will create $facture from this recurring invoice
 
-			    $facture = new Facture($db);
-				$facture->fac_rec = $facturerec->id;    // We will create $facture from this recurring invoice
-				$facture->fk_fac_rec_source = $facturerec->id;    // We will create $facture from this recurring invoice
+				    $facture->type = self::TYPE_STANDARD;
+				    $facture->brouillon = 1;
+				    $facture->date = (empty($facturerec->date_when)?$now:$facturerec->date_when);	// We could also use dol_now here but we prefer date_when so invoice has real date when we would like even if we generate later.
+				    $facture->socid = $facturerec->socid;
 
-			    $facture->type = self::TYPE_STANDARD;
-			    $facture->brouillon = 1;
-			    $facture->date = (empty($facturerec->date_when)?$now:$facturerec->date_when);	// We could also use dol_now here but we prefer date_when so invoice has real date when we would like even if we generate later.
-			    $facture->socid = $facturerec->socid;
-
-			    $invoiceidgenerated = $facture->create($user);
-			    if ($invoiceidgenerated <= 0)
-			    {
-			        $this->errors = $facture->errors;
-			        $this->error = $facture->error;
-			        $error++;
-			    }
-			    if (! $error && $facturerec->auto_validate)
-			    {
-			        $result = $facture->validate($user);
-			        if ($result <= 0)
-			        {
-    			        $this->errors = $facture->errors;
-    			        $this->error = $facture->error;
-			            $error++;
-                    }
-			    }
-                if (! $error && $facturerec->generate_pdf)
-                {
-                    $result = $facture->generateDocument($facturerec->modelpdf, $langs);
-                    if ($result <= 0)
-                    {
-                        $this->errors = $facture->errors;
-                        $this->error = $facture->error;
-                        $error++;
-                    }
-                }
+				    $invoiceidgenerated = $facture->create($user);
+				    if ($invoiceidgenerated <= 0)
+				    {
+				        $this->errors = $facture->errors;
+				        $this->error = $facture->error;
+				        $error++;
+				    }
+				    if (! $error && ($facturerec->auto_validate || $forcevalidation))
+				    {
+				        $result = $facture->validate($user);
+				        if ($result <= 0)
+				        {
+	    			        $this->errors = $facture->errors;
+	    			        $this->error = $facture->error;
+				            $error++;
+	                    }
+				    }
+	                if (! $error && $facturerec->generate_pdf)
+	                {
+	                    // We refresh the object in order to have all necessary data (like date_lim_reglement)
+	                    $facture->fetch($facture->id);
+	                    $result = $facture->generateDocument($facturerec->modelpdf, $langs);
+	                    if ($result <= 0)
+	                    {
+	                        $this->errors = $facture->errors;
+	                        $this->error = $facture->error;
+	                        $error++;
+	                    }
+	                }
+				}
+				else
+				{
+					$error++;
+					$this->error="Failed to load invoice template with id=".$line->rowid.", entity=".$conf->entity."\n";
+					$this->errors[]="Failed to load invoice template with id=".$line->rowid.", entity=".$conf->entity;
+					dol_syslog("createRecurringInvoices Failed to load invoice template with id=".$line->rowid.", entity=".$conf->entity);
+				}
 
 				if (! $error && $invoiceidgenerated >= 0)
 				{
@@ -1090,7 +1146,21 @@ class FactureRec extends CommonInvoice
 		global $langs;
 
 		$result='';
-        $label=$langs->trans("ShowInvoice").': '.$this->ref;
+
+		$label = '<u>' . $langs->trans("ShowInvoice") . '</u>';
+		if (! empty($this->ref))
+			$label .= '<br><b>'.$langs->trans('Ref') . ':</b> ' . $this->ref;
+		if (! empty($this->date_last_gen))
+			$label .= '<br><b>'.$langs->trans('DateLastGeneration') . ':</b> ' . dol_print_date($this->date_last_gen, 'dayhour');
+		if ($this->frequency > 0)
+		{
+			if (! empty($this->date_when))
+			{
+				$label .= '<br><b>'.$langs->trans('NextDateToExecution') . ':</b> ';
+				$label .= (empty($this->suspended)?'':'<strike>'). dol_print_date($this->date_when, 'day').(empty($this->suspended)?'':'</strike>');	// No hour for this property
+				if (! empty($this->suspended)) $label .= ' ('.$langs->trans("Disabled").')';
+			}
+		}
 
         $url = DOL_URL_ROOT.'/compta/facture/fiche-rec.php?facid='.$this->id;
 
@@ -1128,6 +1198,7 @@ class FactureRec extends CommonInvoice
 		return $this->LibStatut($this->frequency?1:0, $this->suspended, $mode, $alreadypaid, empty($this->type)?0:$this->type);
 	}
 
+    // phpcs:disable PEAR.NamingConventions.ValidFunctionName.NotCamelCaps
 	/**
 	 *	Return label of a status
 	 *
@@ -1140,6 +1211,7 @@ class FactureRec extends CommonInvoice
 	 */
 	function LibStatut($recur, $status, $mode=0, $alreadypaid=-1, $type=0)
 	{
+        // phpcs:enable
 		global $langs;
 		$langs->load('bills');
 
@@ -1149,60 +1221,84 @@ class FactureRec extends CommonInvoice
 			$prefix='';
 			if ($recur)
 			{
-				if ($status == 1) return $langs->trans('Disabled');       // credit note
+				if ($status == self::STATUS_SUSPENDED) return $langs->trans('Disabled');
 				else return $langs->trans('Active');
 			}
-			else return $langs->trans("Draft");
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return $langs->trans('Disabled');
+				else return $langs->trans("Draft");
+			}
 		}
-		if ($mode == 1)
+		elseif ($mode == 1)
 		{
 			$prefix='Short';
 			if ($recur)
 			{
-				if ($status == 1) return $langs->trans('Disabled');
+				if ($status == self::STATUS_SUSPENDED) return $langs->trans('Disabled');
 				else return $langs->trans('Active');
 			}
-			else return $langs->trans("Draft");
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return $langs->trans('Disabled');
+				else return $langs->trans("Draft");
+			}
 		}
-		if ($mode == 2)
+		elseif ($mode == 2)
 		{
 			if ($recur)
 			{
-				if ($status == 1) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
 				else return img_picto($langs->trans('Active'),'statut4').' '.$langs->trans('Active');
 			}
-			else return img_picto($langs->trans('Draft'),'statut0').' '.$langs->trans('Draft');
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
+				else return img_picto($langs->trans('Draft'),'statut0').' '.$langs->trans('Draft');
+			}
 		}
-		if ($mode == 3)
+		elseif ($mode == 3)
 		{
 			if ($recur)
 			{
 				$prefix='Short';
-				if ($status == 1) return img_picto($langs->trans('Disabled'),'statut6');
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6');
 				else return img_picto($langs->trans('Active'),'statut4');
 			}
-			else return img_picto($langs->trans('Draft'),'statut0');
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6');
+				else return img_picto($langs->trans('Draft'),'statut0');
+			}
 		}
-		if ($mode == 4)
+		elseif ($mode == 4)
 		{
 			$prefix='';
 			if ($recur)
 			{
-				if ($status == 1) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
 				else return img_picto($langs->trans('Active'),'statut4').' '.$langs->trans('Active');
 			}
-			else return img_picto($langs->trans('Draft'),'statut0').' '.$langs->trans('Draft');
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return img_picto($langs->trans('Disabled'),'statut6').' '.$langs->trans('Disabled');
+				else return img_picto($langs->trans('Draft'),'statut0').' '.$langs->trans('Draft');
+			}
 		}
-		if ($mode == 5 || $mode == 6)
+		elseif ($mode == 5 || $mode == 6)
 		{
 			$prefix='';
 			if ($mode == 5) $prefix='Short';
 			if ($recur)
 			{
-				if ($status == 1) return '<span class="xhideonsmartphone">'.$langs->trans('Disabled').' </span>'.img_picto($langs->trans('Disabled'),'statut6');
+				if ($status == self::STATUS_SUSPENDED) return '<span class="xhideonsmartphone">'.$langs->trans('Disabled').' </span>'.img_picto($langs->trans('Disabled'),'statut6');
 				else return '<span class="xhideonsmartphone">'.$langs->trans('Active').' </span>'.img_picto($langs->trans('Active'),'statut4');
 			}
-			else return $langs->trans('Draft').' '.img_picto($langs->trans('Active'),'statut0');
+			else
+			{
+				if ($status == self::STATUS_SUSPENDED) return '<span class="xhideonsmartphone">'.$langs->trans('Disabled').' </span>'.img_picto($langs->trans('Disabled'),'statut6');
+				else return $langs->trans('Draft').' '.img_picto($langs->trans('Active'),'statut0');
+			}
 		}
 	}
 
@@ -1469,7 +1565,7 @@ class FactureRec extends CommonInvoice
     }
 
 	/**
-     *	Update the auto validate invoice
+     *	Update the auto validate flag of invoice
      *
      *	@param     	int		$validate		0 to create in draft, 1 to create and validate invoice
      *	@return		int						<0 if KO, >0 if OK
@@ -1570,7 +1666,14 @@ class FactureRec extends CommonInvoice
  */
 class FactureLigneRec extends CommonInvoiceLine
 {
+	/**
+	 * @var string ID to identify managed object
+	 */
 	public $element='facturedetrec';
+
+	/**
+	 * @var string Name of table without prefix where object is stored
+	 */
 	public $table_element='facturedet_rec';
 
 	var $date_start_fill;
@@ -1698,22 +1801,17 @@ class FactureLigneRec extends CommonInvoiceLine
     /**
      * 	Update a line to invoice_rec.
      *
+     *  @param		User	$user					User
+     *  @param		int		$notrigger				No trigger
      *	@return    	int             				<0 if KO, Id of line if OK
      */
-    function update()
+    function update(User $user, $notrigger=0)
     {
-    	global $user;
+    	global $conf;
 
     	include_once DOL_DOCUMENT_ROOT.'/core/lib/price.lib.php';
 
-    	if ($fk_product)
-    	{
-    		$product=new Product($this->db);
-    		$result=$product->fetch($fk_product);
-    		$product_type=$product->type;
-    	}
-
-    	$sql = "UPDATE ".MAIN_DB_PREFIX."facturedet_rec SET ";
+    	$sql = "UPDATE ".MAIN_DB_PREFIX."facturedet_rec SET";
     	$sql.= " fk_facture = ".$this->fk_facture;
     	$sql.= ", label=".(! empty($this->label)?"'".$this->db->escape($this->label)."'":"null");
     	$sql.= ", description='".$this->db->escape($this->desc)."'";
@@ -1732,16 +1830,18 @@ class FactureLigneRec extends CommonInvoiceLine
     	$sql.= ", info_bits='".price2num($this->info_bits)."'";
     	$sql.= ", date_start_fill=".(int) $this->date_start_fill;
     	$sql.= ", date_end_fill=".(int) $this->date_end_fill;
-    	$sql.= ", total_ht='".price2num($this->total_ht)."'";
-    	$sql.= ", total_tva='".price2num($this->total_tva)."'";
-    	$sql.= ", total_localtax1='".price2num($this->total_localtax1)."'";
-    	$sql.= ", total_localtax2='".price2num($this->total_localtax2)."'";
-    	$sql.= ", total_ttc='".price2num($this->total_ttc)."'";
+    	if (empty($this->skip_update_total))
+    	{
+    		$sql.= ", total_ht=".price2num($this->total_ht);
+	    	$sql.= ", total_tva=".price2num($this->total_tva);
+	    	$sql.= ", total_localtax1=".price2num($this->total_localtax1);
+	    	$sql.= ", total_localtax2=".price2num($this->total_localtax2);
+	    	$sql.= ", total_ttc=".price2num($this->total_ttc);
+    	}
     	$sql.= ", rang=".$this->rang;
     	$sql.= ", special_code=".$this->special_code;
     	$sql.= ", fk_unit=".($this->fk_unit ?"'".$this->db->escape($this->fk_unit )."'":"null");
     	$sql.= ", fk_contract_line=".($this->fk_contract_line?$this->fk_contract_line:"null");
-
     	$sql.= " WHERE rowid = ".$this->id;
 
     	dol_syslog(get_class($this)."::updateline", LOG_DEBUG);
@@ -1757,10 +1857,10 @@ class FactureLigneRec extends CommonInvoiceLine
     			}
     		}
 
-    		if (! $notrigger)
+    		if (! $error && ! $notrigger)
     		{
     			// Call trigger
-    			$result=$this->call_trigger('LINEBILL_REC_UPDATE',$user);
+    			$result=$this->call_trigger('LINEBILL_REC_UPDATE', $user);
     			if ($result < 0)
     			{
     				$this->db->rollback();
@@ -1773,11 +1873,9 @@ class FactureLigneRec extends CommonInvoiceLine
     	}
     	else
     	{
-    		$this->error=$this->db->error();
+    		$this->error=$this->db->lasterror();
     		$this->db->rollback();
     		return -2;
     	}
-
     }
-
 }

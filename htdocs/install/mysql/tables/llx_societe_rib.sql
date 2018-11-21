@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Copyright (C) 2000-2004 Rodolphe Quiedeville <rodolphe@quiedeville.org>
--- Copyright (C) 2005-2009 Regis Houssin        <regis.houssin@capnetworks.com>
+-- Copyright (C) 2005-2009 Regis Houssin        <regis.houssin@inodbox.com>
 -- Copyright (C) 2012	   Juanjo Menent        <jmenent@2byte.es>
 -- Copyright (C) 2013      Peter Fontaine       <contact@peterfontaine.fr>
 --
@@ -23,7 +23,7 @@
 create table llx_societe_rib
 (
   rowid          integer AUTO_INCREMENT PRIMARY KEY,
-  type           varchar(32) DEFAULT 'ban',							-- 'ban' or 'paypal' or 'card' or 'stripe'
+  type           varchar(32) DEFAULT 'ban' NOT NULL,							-- 'ban' or 'paypal' or 'card' or 'stripe'
   label          varchar(30),
   fk_soc         integer NOT NULL,
   datec          datetime,

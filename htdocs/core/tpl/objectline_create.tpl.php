@@ -1,11 +1,12 @@
 <?php
-/* Copyright (C) 2010-2012	Regis Houssin		<regis.houssin@capnetworks.com>
+/* Copyright (C) 2010-2012	Regis Houssin		<regis.houssin@inodbox.com>
  * Copyright (C) 2010-2014	Laurent Destailleur	<eldy@users.sourceforge.net>
  * Copyright (C) 2012-2013	Christophe Battarel	<christophe.battarel@altairis.fr>
  * Copyright (C) 2012       Cédric Salvador     <csalvador@gpcsolutions.fr>
  * Copyright (C) 2014		Florian Henry		<florian.henry@open-concept.pro>
  * Copyright (C) 2014       Raphaël Doursenaud  <rdoursenaud@gpcsolutions.fr>
  * Copyright (C) 2015-2016	Marcos García		<marcosgdf@gmail.com>
+ * Copyright (C) 2018       Frédéric France         <frederic.france@netlogic.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,6 +59,37 @@ if (empty($inputalsopricewithtax)) $inputalsopricewithtax=0;
 $colspan = 3;	// Col total ht + col edit + col delete
 if (in_array($object->element,array('propal','commande','order','facture','facturerec','invoice','supplier_proposal','order_supplier','invoice_supplier'))) $colspan++;	// With this, there is a column move button
 //print $object->element;
+
+// Lines for extrafield
+$objectline = null;
+if (!empty($extrafieldsline))
+{
+	if ($this->table_element_line=='commandedet') {
+		$objectline = new OrderLine($this->db);
+	}
+	elseif ($this->table_element_line=='propaldet') {
+		$objectline = new PropaleLigne($this->db);
+	}
+	elseif ($this->table_element_line=='supplier_proposaldet') {
+		$objectline = new SupplierProposalLine($this->db);
+	}
+	elseif ($this->table_element_line=='facturedet') {
+		$objectline = new FactureLigne($this->db);
+	}
+	elseif ($this->table_element_line=='contratdet') {
+		$objectline = new ContratLigne($this->db);
+	}
+	elseif ($this->table_element_line=='commande_fournisseurdet') {
+		$objectline = new CommandeFournisseurLigne($this->db);
+	}
+	elseif ($this->table_element_line=='facture_fourn_det') {
+		$objectline = new SupplierInvoiceLine($this->db);
+	}
+	elseif ($this->table_element_line=='facturedet_rec') {
+		$objectline = new FactureLigneRec($this->db);
+	}
+}
+
 ?>
 
 <!-- BEGIN PHP TEMPLATE objectline_create.tpl.php -->
@@ -76,11 +108,11 @@ if ($nolinesbefore) {
 	if ($object->element == 'supplier_proposal' || $object->element == 'order_supplier' || $object->element == 'invoice_supplier')	// We must have same test in printObjectLines
 	{
 	?>
-		<td class="linecolrefsupplier" align="right"><span id="title_fourn_ref"><?php echo $langs->trans('SupplierRef'); ?></span></td>
+		<td class="linecolrefsupplier"><span id="title_fourn_ref"><?php echo $langs->trans('SupplierRef'); ?></span></td>
 	<?php } ?>
 	<td class="linecolvat" align="right"><span id="title_vat"><?php echo $langs->trans('VAT'); ?></span></td>
 	<td class="linecoluht" align="right"><span id="title_up_ht"><?php echo $langs->trans('PriceUHT'); ?></span></td>
-	<?php if (!empty($conf->multicurrency->enabled)) { $colspan++;?>
+	<?php if (!empty($conf->multicurrency->enabled) && $this->multicurrency_code != $conf->currency) { $colspan++;?>
 	<td class="linecoluht_currency" align="right"><span id="title_up_ht_currency"><?php echo $langs->trans('PriceUHTCurrency'); ?></span></td>
 	<?php } ?>
 	<?php if (! empty($inputalsopricewithtax)) { ?>
@@ -128,6 +160,7 @@ if ($nolinesbefore) {
 ?>
 <tr class="pair nodrag nodrop nohoverpair<?php echo ($nolinesbefore || $object->element=='contrat')?'':' liste_titre_create'; ?>">
 <?php
+// Adds a line numbering column
 if (! empty($conf->global->MAIN_VIEW_LINE_NUMBER)) {
 	$coldisplay=2;
 	?>
@@ -314,7 +347,7 @@ else {
 	<input type="text" size="5" name="price_ht" id="price_ht" class="flat right" value="<?php echo (isset($_POST["price_ht"])?GETPOST("price_ht",'alpha',2):''); ?>">
 	</td>
 
-	<?php if (!empty($conf->multicurrency->enabled)) { $colspan++;?>
+	<?php if (!empty($conf->multicurrency->enabled) && $this->multicurrency_code != $conf->currency) { $colspan++;?>
 	<td class="nobottom linecoluht_currency" align="right">
 	<input type="text" size="5" name="multicurrency_price_ht" id="multicurrency_price_ht" class="flat right" value="<?php echo (isset($_POST["multicurrency_price_ht"])?GETPOST("multicurrency_price_ht",'alpha',2):''); ?>">
 	</td>
@@ -384,40 +417,13 @@ else {
 	<td class="nobottom linecoledit" align="center" valign="middle" colspan="<?php echo $colspan; ?>">
 		<input type="submit" class="button" value="<?php echo $langs->trans('Add'); ?>" name="addline" id="addline">
 	</td>
-	<?php
-	// Lines for extrafield
-	if (!empty($extrafieldsline))
-	{
-		if ($this->table_element_line=='commandedet') {
-			$newline = new OrderLine($this->db);
-		}
-		elseif ($this->table_element_line=='propaldet') {
-			$newline = new PropaleLigne($this->db);
-		}
-		elseif ($this->table_element_line=='supplier_proposaldet') {
-			$newline = new SupplierProposalLine($this->db);
-		}
-		elseif ($this->table_element_line=='facturedet') {
-			$newline = new FactureLigne($this->db);
-		}
-		elseif ($this->table_element_line=='contratdet') {
-			$newline = new ContratLigne($this->db);
-		}
-		elseif ($this->table_element_line=='commande_fournisseurdet') {
-			$newline = new CommandeFournisseurLigne($this->db);
-		}
-		elseif ($this->table_element_line=='facture_fourn_det') {
-			$newline = new SupplierInvoiceLine($this->db);
-		}
-		elseif ($this->table_element_line=='facturedet_rec') {
-			$newline = new FactureLigneRec($this->db);
-		}
-		if (is_object($newline)) {
-			print $newline->showOptionals($extrafieldsline, 'edit', array('style'=>$bcnd[$var], 'colspan'=>$coldisplay+8));
-		}
-	}
-	?>
 </tr>
+
+<?php
+if (is_object($objectline)) {
+	print $objectline->showOptionals($extrafieldsline, 'edit', array('style'=>$bcnd[$var], 'colspan'=>$coldisplay+8), '', '', empty($conf->global->MAIN_EXTRAFIELDS_IN_ONE_TD)?0:1);
+}
+?>
 
 <?php
 if ((! empty($conf->service->enabled) || ($object->element == 'contrat')) && $dateSelector && GETPOST('type') != '0')	// We show date field if required
@@ -458,7 +464,7 @@ if ((! empty($conf->service->enabled) || ($object->element == 'contrat')) && $da
 		}
 	}
 
-	if (!empty($conf->multicurrency->enabled)) $colspan+=2;
+	if (!empty($conf->multicurrency->enabled) && $this->multicurrency_code != $conf->currency) $colspan+=2;
 
 	if (! empty($usemargins))
 	{
@@ -477,16 +483,16 @@ if ((! empty($conf->service->enabled) || ($object->element == 'contrat')) && $da
 	if (! empty($object->element) && $object->element == 'contrat')
 	{
 		print $langs->trans("DateStartPlanned").' ';
-		$form->select_date($date_start,"date_start",$usehm,$usehm,1,"addproduct");
+		print $form->selectDate($date_start,"date_start",$usehm,$usehm,1,"addproduct");
 		print ' &nbsp; '.$langs->trans("DateEndPlanned").' ';
-		$form->select_date($date_end,"date_end",$usehm,$usehm,1,"addproduct");
+		print $form->selectDate($date_end,"date_end",$usehm,$usehm,1,"addproduct");
 	}
 	else
 	{
 		echo $langs->trans('ServiceLimitedDuration').' '.$langs->trans('From').' ';
-		echo $form->select_date($date_start,'date_start',empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1,empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1,1,"addproduct",1,0,1);
+		print $form->selectDate($date_start, 'date_start', empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1, empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1, 1, "addproduct", 1, 0);
 		echo ' '.$langs->trans('to').' ';
-		echo $form->select_date($date_end,'date_end',empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1,empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1,1,"addproduct",1,0,1);
+		print $form->selectDate($date_end, 'date_end', empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1, empty($conf->global->MAIN_USE_HOURMIN_IN_DATE_RANGE)?0:1, 1, "addproduct", 1, 0);
 	};
 	print '<script type="text/javascript">';
 	if (!$date_start) {

@@ -1,7 +1,7 @@
 <?php
 /* Copyright (C) 2001-2003 Rodolphe Quiedeville <rodolphe@quiedeville.org>
  * Copyright (C) 2004-2016 Laurent Destailleur  <eldy@users.sourceforge.net>
- * Copyright (C) 2005-2010 Regis Houssin        <regis.houssin@capnetworks.com>
+ * Copyright (C) 2005-2010 Regis Houssin        <regis.houssin@inodbox.com>
  * Copyright (C) 2011-2016 Alexandre Spangaro   <aspangaro.dolibarr@gmail.com>
  * Copyright (C) 2011-2014 Juanjo Menent	    <jmenent@2byte.es>
  * Copyright (C) 2015      Jean-François Ferry	<jfefe@aternatik.fr>
@@ -34,8 +34,8 @@ require_once DOL_DOCUMENT_ROOT.'/compta/salaries/class/paymentsalary.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/compta/bank/class/account.class.php';
 
-$langs->load("compta");
-$langs->load("bills");
+// Load translation files required by the page
+$langs->loadLangs(array('compta', 'bills'));
 
 // Security check
 if ($user->societe_id) $socid=$user->societe_id;
@@ -48,7 +48,7 @@ if (! $year && $mode != 'sconly') { $year=date("Y", time()); }
 
 $search_account = GETPOST('search_account','int');
 
-$limit = GETPOST('limit')?GETPOST('limit','int'):$conf->liste_limit;
+$limit = GETPOST('limit','int')?GETPOST('limit','int'):$conf->liste_limit;
 $sortfield = GETPOST("sortfield",'alpha');
 $sortorder = GETPOST("sortorder",'alpha');
 $page = GETPOST("page",'int');
@@ -166,12 +166,10 @@ if (! empty($conf->tax->enabled) && $user->rights->tax->charges->lire)
 		$total = 0;
 		$totalnb = 0;
 		$totalpaye = 0;
-		$var=true;
 
 		while ($i < min($num, $limit))
 		{
 			$obj = $db->fetch_object($resql);
-			$var = !$var;
 			print '<tr class="oddeven">';
 			// Date
 			$date=$obj->periode;
@@ -417,13 +415,12 @@ while($j<$numlt)
 			print_liste_field_titre("DatePayment",$_SERVER["PHP_SELF"],"pv.datep","",$param,'align="center"',$sortfield,$sortorder);
 			print_liste_field_titre("PayedByThisPayment",$_SERVER["PHP_SELF"],"pv.amount","",$param,'align="right"',$sortfield,$sortorder);
 			print "</tr>\n";
-			$var=1;
+
 			while ($i < $num)
 			{
 				$obj = $db->fetch_object($result);
 
 				$total = $total + $obj->amount;
-
 
 				print '<tr class="oddeven">';
 				print '<td align="left">'.dol_print_date($db->jdate($obj->dm),'day').'</td>'."\n";
@@ -458,7 +455,7 @@ while($j<$numlt)
 
 
 // Payment Salary
-if (! empty($conf->salaries->enabled) && $user->rights->salaries->read)
+if (! empty($conf->salaries->enabled) && ! empty($user->rights->salaries->read))
 {
     if (! $mode || $mode != 'sconly')
     {
@@ -501,7 +498,7 @@ if (! empty($conf->salaries->enabled) && $user->rights->salaries->read)
 			if (! empty($conf->banque->enabled)) print_liste_field_titre("Account",$_SERVER["PHP_SELF"],"ba.label","",$param,"",$sortfield,$sortorder);
             print_liste_field_titre("PayedByThisPayment",$_SERVER["PHP_SELF"],"s.amount","",$param,'align="right"',$sortfield,$sortorder);
             print "</tr>\n";
-            $var=1;
+
             while ($i < $num)
             {
                 $obj = $db->fetch_object($result);
@@ -571,7 +568,6 @@ if (! empty($conf->salaries->enabled) && $user->rights->salaries->read)
 
 print '</form>';
 
-
+// End of page
 llxFooter();
-
 $db->close();
